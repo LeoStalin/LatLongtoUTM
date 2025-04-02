@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DMS to Decimal Degrees Converter</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            right: 0;
+            left: 0;
+        }
+        .converter-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            width: 300px;
+            transition: all 0.3s ease;
+            max-height: calc(100vh - 20px);
+            overflow-y: auto;
+        }
+        .panel-collapsed {
+            width: 40px;
+            height: 40px;
+            overflow: hidden;
+        }
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        .panel-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .toggle-btn {
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 5px;
+            width: auto;
+        }
+        .input-group {
+            margin-bottom: 8px;
+        }
+        .input-group-container {
+            border: 1px solid #ddd;
+            padding: 8px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        .input-group-title {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        label {
+            display: block;
+            margin-bottom: 3px;
+            font-size: 11px;
+            color: #666;
+        }
+        input, select {
+            width: 100%;
+            padding: 6px;
+            box-sizing: border-box;
+            font-size: 12px;
+            margin-bottom: 3px;
+        }
+        button {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            font-size: 12px;
+        }
+        #convertBtn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        #convertBtn:hover {
+            background-color: #45a049;
+        }
+        .coordinates-display {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 6px 10px;
+            border-radius: 4px;
+            z-index: 1000;
+            font-size: 12px;
+        }
+        .leaflet-control-zoom {
+            margin-top: 10px !important;
+            margin-right: 10px !important;
+            margin-left: auto !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="converter-panel" id="converterPanel">
+        <div class="panel-header" onclick="togglePanel()">
+            <h3 class="panel-title"><i class="fas fa-exchange-alt"></i> DMS Converter</h3>
+            <button class="toggle-btn" id="toggleBtn"><i class="fas fa-chevron-left"></i></button>
+        </div>
+        
+        <div id="panelContent">
+            <div class="input-group-container">
+                <div class="input-group-title">Latitude</div>
+                <div class="input-group">
+                    <label for="latDegrees">Degrees:</label>
+                    <input type="number" id="latDegrees" min="0" max="90" placeholder="0-90">
+                </div>
+                <div class="input-group">
+                    <label for="latMinutes">Minutes:</label>
+                    <input type="number" id="latMinutes" min="0" max="59" placeholder="0-59">
+                </div>
+                <div class="input-group">
+                    <label for="latSeconds">Seconds:</label>
+                    <input type="number" id="latSeconds" min="0" max="59" placeholder="0-59">
+                </div>
+                <div class="input-group">
+                    <label for="latDirection">Direction:</label>
+                    <select id="latDirection">
+                        <option value="N">North (N)</option>
+                        <option value="S">South (S)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="input-group-container">
+                <div class="input-group-title">Longitude</div>
+                <div class="input-group">
+                    <label for="lonDegrees">Degrees:</label>
+                    <input type="number" id="lonDegrees" min="0" max="180" placeholder="0-180">
+                </div>
+                <div class="input-group">
+                    <label for="lonMinutes">Minutes:</label>
+                    <input type="number" id="lonMinutes" min="0" max="59" placeholder="0-59">
+                </div>
+                <div class="input-group">
+                    <label for="lonSeconds">Seconds:</label>
+                    <input type="number" id="lonSeconds" min="0" max="59" placeholder="0-59">
+                </div>
+                <div class="input-group">
+                    <label for="lonDirection">Direction:</label>
+                    <select id="lonDirection">
+                        <option value="E">East (E)</option>
+                        <option value="W">West (W)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <button id="convertBtn"><i class="fas fa-calculator"></i> Convert & Show</button>
+            
+            <div class="input-group">
+                <label for="decimalOutput">Decimal Degrees:</label>
+                <input type="text" id="decimalOutput" readonly>
+            </div>
+        </div>
+    </div>
+    
+    <div id="map"></div>
+    <div class="coordinates-display" id="coordinatesDisplay">
+        <i class="fas fa-map-marker-alt"></i> No location selected
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        // Initialize map with Google Hybrid tiles
+        var map = L.map('map', {
+            zoomControl: false
+        }).setView([20, 77], 5);
+        
+        L.control.zoom({
+            position: 'topright'
+        }).addTo(map);
+        
+        L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            attribution: 'Google Hybrid',
+            maxZoom: 20
+        }).addTo(map);
+        
+        var marker = null;
+        var coordinatesDisplay = document.getElementById('coordinatesDisplay');
+        var panelCollapsed = false;
+        
+        function adjustPanelHeight() {
+            var panel = document.getElementById('converterPanel');
+            if (!panelCollapsed) {
+                panel.style.maxHeight = (window.innerHeight - 20) + 'px';
+            }
+        }
+        
+        adjustPanelHeight();
+        window.addEventListener('resize', adjustPanelHeight);
+        
+        function togglePanel() {
+            var panel = document.getElementById('converterPanel');
+            var toggleBtn = document.getElementById('toggleBtn');
+            var panelContent = document.getElementById('panelContent');
+            
+            panelCollapsed = !panelCollapsed;
+            
+            if (panelCollapsed) {
+                panel.classList.add('panel-collapsed');
+                toggleBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+                panelContent.style.display = 'none';
+            } else {
+                panel.classList.remove('panel-collapsed');
+                toggleBtn.innerHTML = '<i class="fas fa-chevron-left"></i>';
+                panelContent.style.display = 'block';
+                adjustPanelHeight();
+            }
+        }
+        
+        function dmsToDecimal(degrees, minutes, seconds, direction) {
+            var decimal = degrees + (minutes / 60) + (seconds / 3600);
+            if (direction === 'S' || direction === 'W') {
+                decimal = -decimal;
+            }
+            return decimal;
+        }
+        
+        document.getElementById('convertBtn').addEventListener('click', function() {
+            var latDegrees = parseFloat(document.getElementById('latDegrees').value) || 0;
+            var latMinutes = parseFloat(document.getElementById('latMinutes').value) || 0;
+            var latSeconds = parseFloat(document.getElementById('latSeconds').value) || 0;
+            var latDirection = document.getElementById('latDirection').value;
+            
+            var lonDegrees = parseFloat(document.getElementById('lonDegrees').value) || 0;
+            var lonMinutes = parseFloat(document.getElementById('lonMinutes').value) || 0;
+            var lonSeconds = parseFloat(document.getElementById('lonSeconds').value) || 0;
+            var lonDirection = document.getElementById('lonDirection').value;
+            
+            if (latDegrees < 0 || latDegrees > 90) {
+                alert("Latitude degrees must be between 0-90");
+                return;
+            }
+            
+            if (lonDegrees < 0 || lonDegrees > 180) {
+                alert("Longitude degrees must be between 0-180");
+                return;
+            }
+            
+            if (latMinutes < 0 || latMinutes >= 60 || lonMinutes < 0 || lonMinutes >= 60) {
+                alert("Minutes must be between 0-59");
+                return;
+            }
+            
+            if (latSeconds < 0 || latSeconds >= 60 || lonSeconds < 0 || lonSeconds >= 60) {
+                alert("Seconds must be between 0-59");
+                return;
+            }
+            
+            var latDecimal = dmsToDecimal(latDegrees, latMinutes, latSeconds, latDirection);
+            var lonDecimal = dmsToDecimal(lonDegrees, lonMinutes, lonSeconds, lonDirection);
+            
+            // Changed to 8 decimal places
+            document.getElementById('decimalOutput').value = latDecimal.toFixed(8) + ", " + lonDecimal.toFixed(8);
+            
+            updateMap(latDecimal, lonDecimal);
+        });
+        
+        function updateMap(lat, lon) {
+            if (marker) {
+                map.removeLayer(marker);
+            }
+            
+            // Changed to 8 decimal places in popup
+            marker = L.marker([lat, lon]).addTo(map)
+                .bindPopup("Location: " + lat.toFixed(8) + ", " + lon.toFixed(8))
+                .openPopup();
+            
+            map.setView([lat, lon], 15);
+            
+            // Changed to 8 decimal places in display
+            coordinatesDisplay.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${lat.toFixed(8)}, ${lon.toFixed(8)}`;
+        }
+        
+        map.on('click', function(e) {
+            var lat = e.latlng.lat;
+            var lon = e.latlng.lng;
+            
+            var latDMS = decimalToDMS(lat, true);
+            var lonDMS = decimalToDMS(lon, false);
+            
+            document.getElementById('latDegrees').value = latDMS.degrees;
+            document.getElementById('latMinutes').value = latDMS.minutes;
+            document.getElementById('latSeconds').value = latDMS.seconds.toFixed(2);
+            document.getElementById('latDirection').value = latDMS.direction;
+            
+            document.getElementById('lonDegrees').value = lonDMS.degrees;
+            document.getElementById('lonMinutes').value = lonDMS.minutes;
+            document.getElementById('lonSeconds').value = lonDMS.seconds.toFixed(2);
+            document.getElementById('lonDirection').value = lonDMS.direction;
+            
+            // Changed to 8 decimal places
+            document.getElementById('decimalOutput').value = lat.toFixed(8) + ", " + lon.toFixed(8);
+            
+            updateMap(lat, lon);
+        });
+        
+        function decimalToDMS(decimal, isLatitude) {
+            var direction;
+            var absolute = Math.abs(decimal);
+            
+            if (isLatitude) {
+                direction = decimal >= 0 ? 'N' : 'S';
+            } else {
+                direction = decimal >= 0 ? 'E' : 'W';
+            }
+            
+            var degrees = Math.floor(absolute);
+            var minutesNotTruncated = (absolute - degrees) * 60;
+            var minutes = Math.floor(minutesNotTruncated);
+            var seconds = (minutesNotTruncated - minutes) * 60;
+            
+            return {
+                degrees: degrees,
+                minutes: minutes,
+                seconds: seconds,
+                direction: direction
+            };
+        }
+    </script>
+</body>
+</html>
