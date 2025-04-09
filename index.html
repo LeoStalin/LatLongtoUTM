@@ -105,7 +105,7 @@
             border-radius: 4px;
         }
         
-        button#update-btn {
+        button#update-btn, button#current-location-btn {
             background-color: #4CAF50;
             color: white;
             padding: 10px 15px;
@@ -117,8 +117,17 @@
             transition: background-color 0.3s ease;
         }
         
-        button#update-btn:hover {
+        button#update-btn:hover, button#current-location-btn:hover {
             background-color: #45a049;
+        }
+        
+        button#current-location-btn {
+            background-color: #2196F3;
+            margin-bottom: 15px;
+        }
+        
+        button#current-location-btn:hover {
+            background-color: #0b7dda;
         }
         
         .coord-display, .utm-display {
@@ -159,6 +168,12 @@
             font-size: 0.9em;
             margin-top: 5px;
         }
+        
+        .location-error {
+            color: red;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
@@ -167,6 +182,9 @@
         <h3 style="margin-top: 0;">Lat/Long to UTM Converter</h3>
         
         <div class="coord-display">
+            <button id="current-location-btn">Get Current Location</button>
+            <div id="location-error" class="location-error"></div>
+            
             <div class="input-container">
                 <label for="lat-input">Latitude (-90 to 90):</label>
                 <input type="text" id="lat-input" value="0.0000" placeholder="e.g. 40.7128">
@@ -274,6 +292,58 @@
             }
         }
 
+        // Get current location function
+        function getCurrentLocation() {
+            const locationError = document.getElementById('location-error');
+            locationError.textContent = '';
+            
+            if (!navigator.geolocation) {
+                locationError.textContent = 'Geolocation is not supported by your browser';
+                return;
+            }
+            
+            locationError.textContent = 'Locating...';
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    
+                    document.getElementById('lat-input').value = lat.toFixed(6);
+                    document.getElementById('lng-input').value = lng.toFixed(6);
+                    
+                    marker.setLatLng([lat, lng]);
+                    map.setView([lat, lng], 15);
+                    updateUTM(lat, lng);
+                    
+                    locationError.textContent = '';
+                },
+                (error) => {
+                    let errorMessage = 'Error getting location: ';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMessage += 'User denied the request for Geolocation.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMessage += 'Location information is unavailable.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMessage += 'The request to get user location timed out.';
+                            break;
+                        case error.UNKNOWN_ERROR:
+                            errorMessage += 'An unknown error occurred.';
+                            break;
+                    }
+                    locationError.textContent = errorMessage;
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        }
+
         // Event listeners
         marker.on('drag', e => {
             const {lat, lng} = e.target.getLatLng();
@@ -283,6 +353,7 @@
         });
 
         document.getElementById('update-btn').addEventListener('click', updateFromInputs);
+        document.getElementById('current-location-btn').addEventListener('click', getCurrentLocation);
         document.querySelectorAll('.coord-display input').forEach(input => {
             input.addEventListener('keypress', e => e.key === 'Enter' && updateFromInputs());
         });
